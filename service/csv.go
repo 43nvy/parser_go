@@ -13,6 +13,7 @@ func ToSCV(filename string, mapSlice []map[string]string) error {
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
+	writer.Comma = ';'
 	defer writer.Flush()
 
 	header := []string{
