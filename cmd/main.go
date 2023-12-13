@@ -10,7 +10,7 @@ import (
 )
 
 // Шаблон для форматирования времени
-const layoutHHMMSS = "15:04:05.000"
+const layoutHHMMSS = "15_04_05"
 
 func main() {
 	xmlFolder := flag.String("dir", "./data", "Путь до папки, где находятся файлы XML")
@@ -36,34 +36,44 @@ func main() {
 
 	if err != nil {
 		fmt.Printf("Ошибка поиска файлов: %v\n", err)
+		os.Exit(1)
+		return
+	}
+
+	csvFilename := fmt.Sprintf("result_%s.csv", time.Now().Format(layoutHHMMSS))
+	err = service.CreateCSVFile(csvFilename)
+	if err != nil {
+		fmt.Printf("Возникла ошибка: %v\n", err)
+		os.Exit(1)
 		return
 	}
 
 	var wg sync.WaitGroup
+	var mutex sync.Mutex
 
-	for index, file := range xmlFiles {
+	for _, file := range xmlFiles {
 		fmt.Printf("Началась обработка файла: %s\n", file)
 		wg.Add(1)
-		go parseXMLtoCSV(file, index+1, &wg)
+		go parseXMLtoCSV(file, csvFilename, &wg, &mutex)
 	}
 
 	wg.Wait()
 }
 
-func parseXMLtoCSV(filename string, index int, wg *sync.WaitGroup) {
+func parseXMLtoCSV(filename string, csvFilename string, wg *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wg.Done()
 
-	mapSlice, err := service.ReadXMLFile(filename)
+	service.ReadXMLFile(filename)
+	mapsData, err := service.ReadXMLFile(filename)
 	if err != nil {
-		panic(err)
+		fmt.Printf("ошибка чтения в XML файла: %v\n", err)
 	}
 
-	csvFilename := fmt.Sprintf("result%d_%s.csv", index, time.Now().Format(layoutHHMMSS))
-
-	err = service.ToSCV(csvFilename, mapSlice)
+	mutex.Lock()
+	err = service.ToSCV(csvFilename, mapsData)
 	if err != nil {
-		panic(err)
+		fmt.Printf("ошибка записи в CSV файл: %v\n", err)
 	}
-
+	mutex.Unlock()
 	fmt.Printf("Файл '%s' преобразован в '%s'\n", filename, csvFilename)
 }
